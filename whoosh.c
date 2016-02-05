@@ -53,8 +53,7 @@ char **tokenizeString(char *cmd, int *count) {
 
 int checkIfBuiltInCommand(char **cmds, int length) {
     return length > 0 && ((strcmp(cmds[0], "exit") == 0 && length == 1) || (strcmp(cmds[0], "pwd") == 0 && length == 1)
-                          || (strcmp(cmds[0], "cd") == 0 && length < 3) ||
-                          (strcmp(cmds[0], "path") == 0 && length > 1));
+                          || (strcmp(cmds[0], "cd") == 0 && length < 3) || (strcmp(cmds[0], "path") == 0));
 }
 
 int commandExistsInPath(char* command, char** paths, int length, char** actualPath) {
@@ -70,9 +69,33 @@ int commandExistsInPath(char* command, char** paths, int length, char** actualPa
     return 1;
 }
 
-int runShellCommands(char** command, int length, char** path, int path_length) {
+int runShellCommands(char** command, int length, char** path, int path_length, char* filename) {
     char* actualPath;
     if (commandExistsInPath(command[0], path, path_length, &actualPath) == 0) {
+        if (filename != NULL) {
+            int out = open(strcat("."), O_RDWR|O_CREAT|O_APPEND, 0600);
+            if (-1 == out) { perror("opening cout.log"); return 255; }
+
+            int err = open("cerr.log", O_RDWR|O_CREAT|O_APPEND, 0600);
+            if (-1 == err) { perror("opening cerr.log"); return 255; }
+            int save_out = dup(fileno(stdout));
+            int save_err = dup(fileno(stderr));
+
+            if (-1 == dup2(out, fileno(stdout))) { perror("cannot redirect stdout"); return 255; }
+            if (-1 == dup2(err, fileno(stderr))) { perror("cannot redirect stderr"); return 255; }
+        }
+
+
+
+
+        puts("doing an ls or something now");
+
+        fflush(stdout); close(out);
+        fflush(stderr); close(err);
+        dup2(save_out, fileno(stdout));
+        dup2(save_err, fileno(stderr));
+        close(save_out);
+        close(save_err);
         int child_stat;
         pid_t child_pid;
         child_pid = fork();
@@ -87,18 +110,21 @@ int runShellCommands(char** command, int length, char** path, int path_length) {
     return 1;
 }
 
-char** save_path(char** cmds, int length) {
-    char **result = malloc(sizeof(char**) * length);
-    int i=1;
-    for(;i<length;i++) {
-        result[i-1] = strdup(cmds[i]);
+int check_command_syntax(char** cmds, int length, char** filename) {
+    int i = 0;
+    for (;i<length;i++) {
+        if (strcmp(cmds[i], ">") == 0) {
+            if (i != length - 2 || i == 0) return 1;
+            cmds[i] = 0;
+            *filename = cmds[i+1];
+        }
     }
-    return result;
+    return 0;
 }
 
 int main() {
     char buffer[BUFFERSIZE];
-    char **path;
+    char **path, ;
     int path_length = 0;
     while (1) {
         printf("%s", "whoosh > ");
@@ -120,12 +146,17 @@ int main() {
                         errorOutput();
                 }
                 else if (strcmp(cmds[0], "path") == 0) {
-                    path = cmds;//save_path(cmds, command_length);
+                    path = cmds;
                     path_length = command_length;
                 }
             }
-            else if (runShellCommands(cmds, command_length, path, path_length) != 0)
+            else {
+                char * filename = 0;
+                if (check_command_syntax(cmds, command_length, &filename) != 0)
                     errorOutput();
+                else if (runShellCommands(cmds, command_length, path, path_length, filename) != 0)
+                    errorOutput();
+            }
         }
         else {
             errorOutput();
