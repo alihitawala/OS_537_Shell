@@ -51,7 +51,7 @@ int check_if_built_in_command(char **cmds, int length) {
 int command_exists_in_path(char *command, char **paths, int length, char **actualPath) {
     int i = 1;
     for (; i < length; i++) {
-        char *tempPath = strcat(strdup(paths[i]), command);
+        char *tempPath = paths[i][strlen(paths[i])-1] == '/' ?  strcat(strdup(paths[i]), command) : strcat(strdup(strcat(strdup(paths[i]),"/")), command);
         struct stat fileStat;
         if (stat(tempPath, &fileStat) >= 0) {
             *actualPath = strdup(tempPath);
