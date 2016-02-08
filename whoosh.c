@@ -49,7 +49,7 @@ int check_if_built_in_command(char **cmds, int length) {
 }
 
 int command_exists_in_path(char *command, char **paths, int length, char **actualPath) {
-    int i = 1;
+    int i = 0;
     for (; i < length; i++) {
         char *tempPath = paths[i][strlen(paths[i])-1] == '/' ?  strcat(strdup(paths[i]), command) : strcat(strdup(strcat(strdup(paths[i]),"/")), command);
         struct stat fileStat;
@@ -108,10 +108,17 @@ int check_command_syntax(char **commands, int length, char **filename) {
     return 0;
 }
 
+char** init_path() {
+    char **res;
+    res = malloc(sizeof(char * ) * 1);
+    res[0] = strdup("/bin");
+    return res;
+}
+
 int main() {
     char buffer[BUFFERSIZE];
-    char **path;
-    int path_length = 0;
+    char **path = init_path();
+    int path_length = 1;
     while (1) {
         char *filename = 0;
         printf("%s", "whoosh > ");
@@ -131,8 +138,8 @@ int main() {
                         error_output();
                 }
                 else if (strcmp(commands[0], "path") == 0) {
-                    path = commands;
-                    path_length = command_length;
+                    path = commands + 1;
+                    path_length = command_length - 1;
                 }
             }
             else if (command_length != 0 && (check_command_syntax(commands, command_length, &filename) != 0 ||
